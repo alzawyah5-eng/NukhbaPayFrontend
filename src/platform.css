@@ -1,0 +1,81 @@
+.platform-login {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at top, #f0eafa, #f6f7fb 62%);
+}
+
+.platform-login-card {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 16px;
+  padding: clamp(24px, 6vw, 42px);
+  border: 1px solid var(--nb-border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 50px #17203312;
+}
+
+.platform-login-card h1 { margin: 4px 0 0; font-size: clamp(26px, 5vw, 34px); }
+.platform-login-card p { margin: 0; color: var(--nb-muted); line-height: 1.6; }
+.platform-login-card > .btn { justify-content: center; gap: 10px; }
+.platform-login-security {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 5px;
+  padding-top: 18px;
+  border-top: 1px solid var(--nb-border);
+  color: var(--nb-muted);
+  font-size: 12px;
+}
+
+.workspace-content > .panel + .panel { margin-top: 18px; }
+.workspace-content > .page-heading { margin-bottom: 24px; }
+.workspace-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 18px 24px;
+  margin: 0;
+}
+.workspace-facts dt { color: var(--nb-muted); font-size: 12px; }
+.workspace-facts dd { margin: 7px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.workspace-facts code, .workspace-content .data-table code { font-size: 12px; font-weight: 500; }
+.workspace-muted { margin: 0; color: var(--nb-muted); line-height: 1.6; }
+.workspace-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+.workspace-module {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--nb-border);
+  border-radius: 12px;
+  color: var(--nb-ink);
+  text-decoration: none;
+}
+.workspace-module:hover { background: #faf7ff; border-color: #d9c5f3; }
+.workspace-module:focus-visible, .workspace-record-link:focus-visible {
+  outline: 2px solid var(--nb-purple);
+  outline-offset: 3px;
+}
+.workspace-module-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #f1e8fb;
+  color: var(--nb-purple-dark);
+}
+.workspace-module strong, .workspace-module small { display: block; }
+.workspace-module small { margin-top: 4px; color: var(--nb-muted); line-height: 1.4; }
+.workspace-record-link { color: var(--nb-purple-dark); text-underline-offset: 3px; }
+.workspace-content .notice + .btn { margin-top: 12px; }
