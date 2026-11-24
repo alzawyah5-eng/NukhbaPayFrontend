@@ -9,10 +9,15 @@ dist-ssr/
 
 # Environment variables
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*
+!.env.example
+.envrc
+secrets/
+certs/
+*.pfx
+*.p12
+*.pem
+*.key
 
 # Logs
 npm-debug.log*
@@ -36,6 +41,9 @@ Thumbs.db
 coverage/
 .nyc_output/
 .cache/
+.local/
+.wrangler/
+artifacts/
 temp/
 tmp/
 

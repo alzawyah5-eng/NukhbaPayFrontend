@@ -1,6 +1,6 @@
 # NukhbaPay Frontend — Staff Management & Operations Portal
 
-[![CI/CD Pipeline](https://github.com/alzawyah5-eng/NukhbaPayFrontend/actions/workflows/ci.yml/badge.svg)](https://github.com/alzawyah5-eng/NukhbaPayFrontend/actions/workflows/ci.yml)
+[![Frontend CI](https://github.com/alzawyah5-eng/NukhbaPayFrontend/actions/workflows/ci.yml/badge.svg)](https://github.com/alzawyah5-eng/NukhbaPayFrontend/actions/workflows/ci.yml)
 [![Node Version](https://img.shields.io/badge/Node-20.x%20%7C%2022.x%20%7C%2024.x-brightgreen.svg)](https://nodejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.x-646CFF.svg)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-19.x-61DAFB.svg)](https://react.dev/)
@@ -12,7 +12,7 @@ Modern, reactive staff management and operational dashboard for the **NukhbaPay*
 
 ## 🚀 Features & Screen Directory
 
-The portal provides operations, security, access management, and catalogue publication:
+The staff workspace includes the following screen designs. The backend determines which screens and actions are available to each authenticated staff member.
 
 | # | Screen | Description | Path |
 |---|---|---|---|
@@ -49,7 +49,7 @@ The portal provides operations, security, access management, and catalogue publi
 frontend/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml               # GitHub Actions CI/CD pipeline
+│       └── ci.yml               # GitHub Actions checks and build
 ├── docs/
 │   ├── design-system/           # 13 Figma screens PNGs, UI Kit (.fig), and specs
 │   ├── DEVELOPER_HANDOFF.md     # Engineering handoff document
@@ -62,8 +62,8 @@ frontend/
 │   ├── lib/                     # UI utilities, classnames, formatters
 │   ├── pages/                   # 13 core application screen components
 │   ├── App.tsx                  # Standalone preview routes & demo shell
-│   ├── PlatformApp.tsx          # Production-connected platform app
-│   ├── session.ts               # Session management & token handling
+│   ├── PlatformApp.tsx          # Session-gated platform app
+│   ├── session.ts               # Same-origin staff session requests
 │   ├── department.ts            # Department definitions & helpers
 │   ├── styles.css               # Core design system stylesheet
 │   ├── platform.css             # Platform extensions stylesheet
@@ -83,8 +83,8 @@ frontend/
 
 ### Prerequisites
 
-- **Node.js**: `v20.x`, `v22.x`, or `v24.x`
-- **npm** or **pnpm**
+- **Node.js 22** and **npm** for the standalone frontend. Node.js 24 also works for the Windows commands below.
+- The [NukhbaPay backend](https://github.com/alzawyah5-eng/NukhbaPayBackend) for API and Staff Portal access.
 
 ### Installation
 
@@ -94,30 +94,20 @@ git clone https://github.com/alzawyah5-eng/NukhbaPayFrontend.git
 cd NukhbaPayFrontend
 
 # Install dependencies
-npm install
-```
-
-### Environment Configuration
-
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Set the backend API endpoint:
-
-```env
-VITE_API_BASE_URL=http://localhost:3000
+npm ci
 ```
 
 ### Development Server
 
-Start the local development server at `http://localhost:5173`:
+Start Vite at `http://127.0.0.1:5173`.
 
 ```bash
 npm run dev
 ```
+
+The Vite development proxy defaults to `http://localhost:3000`. Set `VITE_API_BASE_URL` in the environment of the Vite process to override it. This setting applies to the local proxy.
+
+For a database-backed Auth0 login, start the HTTPS Staff Portal from the backend repository and open `https://localhost:3001/login`. The portal serves the browser app and its authenticated endpoints on the same origin.
 
 ### Type Checking & Production Build
 
@@ -132,20 +122,20 @@ npm run build
 npm run preview
 ```
 
+On Windows with Node.js 24, if Vite's standard config loader cannot access the workspace, use:
+
+```powershell
+npm.cmd run build -- --configLoader native
+npm.cmd run preview -- --configLoader native --host 127.0.0.1 --port 5173
+```
+
 ---
 
-## 🔄 CI/CD & Deployment
+## CI and release
 
-This repository includes a production-ready **GitHub Actions CI/CD pipeline** (`.github/workflows/ci.yml`):
+GitHub Actions installs the lockfile, checks TypeScript, builds and uploads `dist/`, and verifies the artifact on `main`.
 
-1. **Lint & Typecheck**: Enforces strict TypeScript compile-time safety on all PRs and pushes.
-2. **Production Build**: Compiles Vite assets with production optimization, sourcemap generation, and chunk splitting.
-3. **Artifact Upload**: Generates deployable `dist/` bundle ready for hosting on **Cloudflare Pages**, **Vercel**, **Netlify**, or **AWS S3 + CloudFront**.
-
-### Deploy to Cloudflare Pages / Vercel
-- **Build command**: `npm run build`
-- **Output directory**: `dist`
-- **Environment variables**: `VITE_API_BASE_URL`
+Deployment is configured separately. An authenticated release needs an HTTPS origin that serves the app and routes `/auth/*` and staff requests to the backend-for-frontend, plus the matching Auth0 callback and logout URLs.
 
 ---
 
