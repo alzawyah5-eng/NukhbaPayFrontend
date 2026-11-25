@@ -1,0 +1,34 @@
+/* One bundled 3× PNG keeps brand artwork same-origin and avoids per-product requests. */
+.catalogue-brand-logo img {
+  position: absolute;
+  width: 384px;
+  min-width: 384px;
+  max-width: none;
+  height: 160px;
+}
+
+.catalogue-brand-logo--airtel img { left: 0px; top: 0px; }
+.catalogue-brand-logo--airtel-bd img { left: -48px; top: 0px; }
+.catalogue-brand-logo--alfamart img { left: -96px; top: 0px; }
+.catalogue-brand-logo--cellc img { left: -144px; top: 0px; }
+.catalogue-brand-logo--claro img { left: -192px; top: 0px; }
+.catalogue-brand-logo--cruzverde img { left: -240px; top: 0px; }
+.catalogue-brand-logo--digicel img { left: -288px; top: 0px; }
+.catalogue-brand-logo--dtac img { left: -336px; top: 0px; }
+.catalogue-brand-logo--glo img { left: 0px; top: -40px; }
+.catalogue-brand-logo--globe img { left: -48px; top: -40px; }
+.catalogue-brand-logo--indomaret img { left: -96px; top: -40px; }
+.catalogue-brand-logo--latorre img { left: -144px; top: -40px; }
+.catalogue-brand-logo--maroctelecom img { left: -192px; top: -40px; }
+.catalogue-brand-logo--meralco img { left: -240px; top: -40px; }
+.catalogue-brand-logo--mtn img { left: -288px; top: -40px; }
+.catalogue-brand-logo--ooredoo img { left: -336px; top: -40px; }
+.catalogue-brand-logo--orange img { left: 0px; top: -80px; }
+.catalogue-brand-logo--pln img { left: -48px; top: -80px; }
+.catalogue-brand-logo--robi img { left: -96px; top: -80px; }
+.catalogue-brand-logo--t2 img { left: -144px; top: -80px; }
+.catalogue-brand-logo--telkomsel img { left: -192px; top: -80px; }
+.catalogue-brand-logo--tigo img { left: -240px; top: -80px; }
+.catalogue-brand-logo--tnt img { left: -288px; top: -80px; }
+.catalogue-brand-logo--vodacom img { left: -336px; top: -80px; }
+.catalogue-brand-logo--xl img { left: 0px; top: -120px; }

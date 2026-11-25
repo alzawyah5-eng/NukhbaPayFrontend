@@ -79,8 +79,9 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
   const refresh=()=>setAttempt(n=>n+1);
   useEffect(() => {
     const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(16_000)]);
     setChecking(true);
-    void Promise.all([readSession(controller.signal),readLoginConfig(controller.signal)]).then(([value,config])=>{
+    void Promise.all([readSession(signal),readLoginConfig(signal)]).then(([value,config])=>{
       if(controller.signal.aborted)return;
       setSession(value);
       setLoginPath(config?.path);
@@ -109,13 +110,13 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
 
   if (session.kind !== 'authenticated' || failed) {
     const chooseDepartment=departmentLogin && !management;
-    const canStart=Boolean(loginPath && session.kind==='anonymous');
+    const canStart=Boolean(loginPath && (session.kind==='anonymous' || session.kind==='unavailable'));
     const canRetry=session.kind==='unavailable' || session.kind==='forbidden' || session.kind==='anonymous' && !loginPath;
     return <main className="platform-login" aria-busy={checking || signingIn}>
       <section className="platform-login-card">
         <img src="/nukhbapay-original-logo-reference.png" alt="NukhbaPay" width={160}/>
         <h1>{pathname==='/auth/logged-out' ? 'You’re signed out'  : management ? 'Staff management sign-in' : 'Staff sign-in'}</h1>
-        {failed && <div role="alert"><Notice tone="warning">The sign-in attempt could not be completed. Start a fresh sign-in or return to your workspace.</Notice></div>}
+        {failed && <div role="alert"><Notice tone="warning">The sign-in attempt could not be completed. Start a fresh sign-in and finish MFA in this tab.</Notice></div>}
         <p>{session.kind==='loading' ? 'Checking your staff session…' :
           session.kind==='unavailable' ? 'The staff session could not be checked.' :
           session.kind==='forbidden' ? 'Access to this staff workspace was denied.' :
@@ -198,7 +199,7 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
         {active==='/audit' && <><StaffAuditPage/>{profile.navigation.includes('/roles') && <WorkspaceActivityPage/>}</>}
         {active==='/reports' && <WorkspaceReportsPage/>}
         {active==='/settings' && <WorkspaceSettingsPage csrfToken={session.csrfToken}/>}
-        {active==='/catalogue' && <CataloguePage/>}
+        {active==='/catalogue' && <CataloguePage csrfToken={session.csrfToken}/>}
         {active==='/catalogue/publication' && <PublicationCommandsPage csrfToken={session.csrfToken}/>}
         {active==='/staff/commands' && <StaffCommandPage csrfToken={session.csrfToken}/>}
         {!active && <Panel title="Workspace access">
