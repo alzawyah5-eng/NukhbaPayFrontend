@@ -1,0 +1,177 @@
+@font-face {
+  font-family: 'Kiosk Open Sans';
+  src: url('/kiosk-assets/OpenSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kiosk Open Sans';
+  src: url('/kiosk-assets/OpenSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kiosk Noto Sans Arabic';
+  src: url('/kiosk-assets/NotoSansArabic-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+.kiosk-page {
+  --kiosk-purple: #5b2c91;
+  --kiosk-border: #e6e1ec;
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f6f5f9;
+  color: #241c30;
+  font-family: 'Kiosk Open Sans', Arial, sans-serif;
+}
+
+.kiosk-stage {
+  width: min(100%, calc(100dvh * 4 / 3));
+  max-width: 1440px;
+  aspect-ratio: 4 / 3;
+}
+
+.kiosk-stage > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.kiosk-page--contrast .kiosk-stage {
+  filter: contrast(1.35);
+}
+
+.kiosk-stage [role='button'] {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.kiosk-stage [aria-disabled='true'] {
+  cursor: default;
+}
+
+.kiosk-stage [role='button']:focus-visible {
+  outline: 3px solid var(--kiosk-purple);
+  outline-offset: 2px;
+}
+
+.kiosk-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.kiosk-gallery a {
+  color: var(--kiosk-purple);
+  text-decoration: underline;
+}
+
+.kiosk-gallery-caption {
+  width: 100%;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.kiosk-gallery button,
+.kiosk-gallery select,
+.kiosk-editor input,
+.kiosk-editor button,
+.kiosk-search-pager button {
+  padding: 12px;
+  border: 1px solid var(--kiosk-border);
+  border-radius: 10px;
+  background: white;
+  color: inherit;
+}
+
+.kiosk-editor {
+  width: min(480px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  border: 1px solid var(--kiosk-border);
+  border-radius: 18px;
+  color: inherit;
+}
+
+.kiosk-editor::backdrop {
+  background: rgb(36 28 48 / 55%);
+}
+
+.kiosk-editor label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.kiosk-editor input {
+  width: 100%;
+  min-height: 56px;
+}
+
+.kiosk-editor button,
+.kiosk-notice button {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.kiosk-editor button[type='submit'],
+.kiosk-notice {
+  border-color: var(--kiosk-purple);
+  background: var(--kiosk-purple);
+  color: white;
+}
+
+.kiosk-editor-actions {
+  display: flex;
+  justify-content: end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.kiosk-preview-link text {
+  fill: var(--kiosk-purple);
+  text-decoration: underline;
+}
+
+.kiosk-search-pager {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 16px;
+  font-size: 18px;
+}
+
+.kiosk-search-pager button {
+  min-width: 120px;
+  min-height: 64px;
+}
+
+.kiosk-notice {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(calc(100% - 32px), 480px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgb(36 28 48 / 18%);
+}
+
+.kiosk-notice button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.4rem;
+}

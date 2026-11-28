@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, BarChart3, BookOpen, Building2, ClipboardCheck, History, LayoutGrid, LockKeyhole, Menu,
-  MonitorSmartphone, Settings, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
+  MonitorSmartphone, RefreshCw, Settings, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import { StaffCommandPage } from './pages/StaffCommandPage';
 import { PublicationCommandsPage } from './pages/PublicationCommandsPage';
 import { CataloguePage } from './pages/CataloguePage';
@@ -69,6 +69,9 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
   const [signingIn, setSigningIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [fxRefreshing, setFxRefreshing] = useState(false);
+  const [fxNotice, setFxNotice] = useState<{message:string;tone:'info'|'warning'|'success'}>();
+  const [fxRevision, setFxRevision] = useState(0);
   const [open, setOpen] = useState(false);
   const [loginPath,setLoginPath]=useState<'/auth/login'|undefined>();
   const [departmentLogin,setDepartmentLogin]=useState(false);
@@ -106,6 +109,36 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
     const result=await signOut(session.csrfToken,serverLogoutPolicy(document),window.location.origin);
     if (result.ok) window.location.assign(result.destination);
     else { setError('Sign out could not be confirmed. Please retry.'); setBusy(false); }
+  }
+
+  async function refreshFxRates() {
+    if (session.kind!=='authenticated' || !session.profile.canRefreshFxRates || fxRefreshing) return;
+    setFxRefreshing(true);
+    setFxNotice(undefined);
+    try {
+      const response = await fetch('/staff-api/catalogue/refresh-rates', {
+        method:'POST', credentials:'same-origin', cache:'no-store',
+        headers:{'x-csrf-token':session.csrfToken},
+      });
+      if (!response.ok) throw new Error();
+      const result = await response.json();
+      if (result?.status==='not-configured') {
+        setFxNotice({tone:'warning',message:'Exchange-rate refresh is unavailable until the Currency API key is configured.'});
+      } else if (result?.status==='already-running') {
+        setFxNotice({tone:'info',message:'An exchange-rate refresh is already running. Try again when it finishes.'});
+      } else if (result?.status==='completed' && [result.ratesFetched,result.converted,result.pending,result.failedCurrencies]
+          .every(value=>Number.isSafeInteger(value) && value>=0)) {
+        setFxRevision(value=>value+1);
+        const counts = `Saved ${result.ratesFetched} new exchange rates. ${result.converted} catalogue amounts have AED conversions. ${result.pending} await a rate.`;
+        setFxNotice(result.failedCurrencies>0
+          ? {tone:'warning', message:`${counts} Currency API quotes were unavailable for ${result.failedCurrencies} currencies.`}
+          : {tone:'success',message:counts});
+      } else throw new Error();
+    } catch {
+      setFxNotice({tone:'warning',message:'Exchange-rate refresh could not be confirmed. Please retry.'});
+    } finally {
+      setFxRefreshing(false);
+    }
   }
 
   if (session.kind !== 'authenticated' || failed) {
@@ -180,7 +213,12 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
       <header className="topbar">
         <button className="mobile-menu icon-button" aria-label="Open navigation" aria-expanded={open} onClick={() => setOpen(true)}><Menu/></button>
         {selected?<Link to={management?'/overview':'/department/'+selected.department}>{management?'Central management':departmentName(selected.department as Department)} · {roleName(selected.role)}</Link>:<span>Staff workspace</span>}
-        <div className="topbar-actions"><Button variant="secondary" disabled={busy} onClick={() => void logout()}>
+        <div className="topbar-actions">
+          {active==='/catalogue' && profile.canRefreshFxRates && <Button variant="secondary" disabled={fxRefreshing || busy}
+            onClick={()=>void refreshFxRates()}><RefreshCw size={15} aria-hidden="true"/>
+            {fxRefreshing ? 'Refreshing exchange rates?' : 'Refresh exchange rates'}
+          </Button>}
+          <Button variant="secondary" disabled={busy} onClick={() => void logout()}>
           {busy ? 'Signing out…' : 'Sign out'}
         </Button></div>
       </header>
@@ -188,6 +226,9 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
         <PageHeading title={active==='/overview'?(management?'Staff management overview':'Staff overview'):heading} subtitle={active && !detail ? pages[active].description : ''}
           {...(active==='/overview' && navigation.includes('/staff/invite') && {actionLabel:'Invite staff',onAction:()=>navigate('/staff/invite')})}/>
         {error && <div role="alert"><Notice tone="warning">{error}</Notice></div>}
+        {active==='/catalogue' && profile.canRefreshFxRates && <div role="status">
+          {fxNotice && <Notice tone={fxNotice.tone}>{fxNotice.message}</Notice>}
+        </div>}
         {active==='/overview' && <>{management && <ManagementOverview profile={profile}/>}<WorkspaceOverview profile={profile} checking={checking} refresh={refresh}/></>}
         {active==='/staff' && <StaffDirectoryPage key={detail??'directory'} staffId={detail}/>}
         {active==='/staff/invite' && <WorkspaceInvitePage csrfToken={session.csrfToken}/>}
@@ -199,7 +240,7 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
         {active==='/audit' && <><StaffAuditPage/>{profile.navigation.includes('/roles') && <WorkspaceActivityPage/>}</>}
         {active==='/reports' && <WorkspaceReportsPage/>}
         {active==='/settings' && <WorkspaceSettingsPage csrfToken={session.csrfToken}/>}
-        {active==='/catalogue' && <CataloguePage csrfToken={session.csrfToken}/>}
+        {active==='/catalogue' && <CataloguePage csrfToken={session.csrfToken} fxRevision={fxRevision}/>}
         {active==='/catalogue/publication' && <PublicationCommandsPage csrfToken={session.csrfToken}/>}
         {active==='/staff/commands' && <StaffCommandPage csrfToken={session.csrfToken}/>}
         {!active && <Panel title="Workspace access">

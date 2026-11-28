@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { Building2, ChevronDown, Globe, Layers, MapPin, type LucideIcon } from 'lucide-react';
 import { Button, EmptyState, Notice, Pagination, Panel } from '../components/UI';
 import { CataloguePricePreview } from './CataloguePricePreview';
-import { catalogueBrandTiles } from './catalogue-brand-logos';
+import { findCatalogueBrandTile, findCatalogueBrandImage } from './catalogue-brand-logos';
 import './catalogue.css';
 import './catalogue-flags.css';
 import './catalogue-brand-logos.css';
@@ -37,8 +37,12 @@ interface CatalogueRow {
   sourceRegion?: string;
   productType?: string;
   hasDiscoveries?: boolean;
-  pricingReview?: {state:'AWAITING_VERIFIED_TERMS';salePrice:null};
+  pricingReview?: {state:'AWAITING_VERIFIED_TERMS';salePrice:null;mappingStatus?:'PROPOSED'|'APPROVED'|'REJECTED'|null};
+  coverageScope?: string|null;
   sellingPricePreview?: string;
+  imageUrl?: string;
+  denominations?: readonly string[];
+  layer1Prices?: Layer1Price[] | null;
   currency?: string;
   category?: string;
   delivery?: string;
@@ -64,6 +68,7 @@ interface CataloguePageState {
   count:number;
   hasConfiguredServices?:boolean;
   pricingPreviewAvailable?:boolean;
+  cataloguePartial?:boolean;
 }
 
 const idlePage = (requestKey:string,kind:PageKind='loading'):CataloguePageState =>
@@ -74,7 +79,7 @@ const observedDateTime=new Intl.DateTimeFormat('en-GB',{
   day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Dubai',
 });
 
-function useCatalogue(view: View, enabled: boolean, filters: Readonly<Record<string,string>>, limit=20) {
+function useCatalogue(view: View, enabled: boolean, filters: Readonly<Record<string,string>>, limit=20, revision=0) {
   const query = new URLSearchParams({ ...filters, limit:String(limit) }).toString();
   const [page,setPage]=useState<{query:string;cursor:string;number:number}>();
   const [state,setState]=useState<CataloguePageState>(()=>idlePage(''));
@@ -83,7 +88,7 @@ function useCatalogue(view: View, enabled: boolean, filters: Readonly<Record<str
   const currentPage=page?.query===query ? page : undefined;
   const cursor=currentPage?.cursor;
   const provider=filters['provider'];
-  const requestKey=JSON.stringify([query,cursor,attempt]);
+  const requestKey=JSON.stringify([query,cursor,attempt,revision]);
   useEffect(()=>setPage(undefined),[query,enabled]);
   useEffect(()=>{
     setState(idlePage(requestKey));
@@ -118,6 +123,7 @@ function useCatalogue(view: View, enabled: boolean, filters: Readonly<Record<str
           }
           const hasConfiguredServices='hasConfiguredServices' in data&&data.hasConfiguredServices===false?false:undefined;
           setState({requestKey,kind:'ready',next:data.next,previous:data.previous,count:data.count,rows:data.items as CatalogueRow[],
+            ...('catalogueCoverage' in data && data.catalogueCoverage==='PARTIAL' && {cataloguePartial:true}),
             ...('pricingPreviewAvailable' in data&&data.pricingPreviewAvailable===true&&{pricingPreviewAvailable:true}),
             ...(hasConfiguredServices===false&&{hasConfiguredServices})});
         }
@@ -195,14 +201,53 @@ function Results({title,state,pricing=false}:{title:string;state:ReturnType<type
   </Panel>;
 }
 
+interface Layer1Price {
+  basis: 'CUSTOMER_PRICE' | 'DENOMINATION' | 'FACE_MIN' | 'FACE_MAX';
+  sourceKey: string;
+  sourceAmount: string;
+  sourceCurrency: string;
+  convertedAed: string | null;
+  rateSource: 'XE' | 'CURRENCY_API' | 'AED_IDENTITY' | null;
+}
+
+function Layer1Prices({ row }: { row: CatalogueRow }) {
+  const prices = row.layer1Prices ?? [];
+  const customer = prices.filter(price => price.basis === 'CUSTOMER_PRICE');
+  const denominations = prices.filter(price => price.basis !== 'CUSTOMER_PRICE');
+  const rows = customer.length ? customer : denominations;
+  return <div className="catalogue-card-acquisition">
+    {row.layer1Prices === null ? <p className="catalogue-card-detail">Provider prices temporarily unavailable.</p> : <>
+    {!customer.length && <p className="catalogue-card-detail">Finxplor has not supplied a customer price.</p>}
+    {rows.length > 0 && <table className="catalogue-layer1-prices">
+      <thead><tr><th>{customer.length ? 'Provider customer price' : 'Provider face value'}</th>
+        <th>{customer.length ? 'Converted AED price' : 'Converted AED face value'}</th></tr></thead>
+      <tbody>{rows.map(price => <tr key={price.sourceKey}>
+        <td>{price.basis === 'FACE_MIN' ? 'From ' : price.basis === 'FACE_MAX' ? 'Up to ' : ''}
+          {price.sourceAmount} {price.sourceCurrency}</td>
+        <td>{price.convertedAed === null ? 'Awaiting exchange rate' : <>AED {price.convertedAed}
+          {price.rateSource === 'CURRENCY_API' && <small> Currency API</small>}
+          {price.rateSource === 'XE' && <small> XE</small>}</>}</td>
+      </tr>)}</tbody>
+    </table>}
+    </>}
+  </div>;
+}
+
 function DiscoveryCard({row,preview}:{row:CatalogueRow;preview?:()=>void}) {
   const kind=row.productType??row.category;
   const brand=(typeof row.brand==='string'?row.brand.trim():'')||row.providerId;
-  const brandTile=brand ? catalogueBrandTiles.get(brand) : undefined;
+  const brandTile=brand ? findCatalogueBrandTile(brand) : undefined;
+  const brandImage=brand ? findCatalogueBrandImage(brand) : undefined;
+  const [failedArtwork,setFailedArtwork]=useState<string>();
+  const providerArtwork=row.imageUrl && row.imageUrl!==failedArtwork ? row.imageUrl : undefined;
   const market=row.sourceCountryName??row.sourceCountry;
   const countryCode=row.sourceCountryCode?.toLowerCase();
   const hasFlag=countryCode!==undefined&&/^[a-z]{2}$/.test(countryCode);
   const discoveryOnly=row.reviewReason==='OUTSIDE_PRICED_CATALOGUE_SCOPE';
+  const mappingStatus=row.pricingReview?.mappingStatus;
+  const providerAmountUnavailable = row.providerId==='FINXPLOR' &&
+    [row.minAmount,row.maxAmount,...(Array.isArray(row.denominations) ? row.denominations : [])].every(value=>
+      typeof value==='string' && /^0(?:\.0+)?$/.test(value));
   const sellingPrice=typeof row.sellingPricePreview==='string'&&/^(?:0|[1-9][0-9]{0,6})\.[0-9]{2}$/.test(row.sellingPricePreview)
     ? row.sellingPricePreview : undefined;
   const blockers=Array.isArray(row.mappingBlockers)?row.mappingBlockers:[];
@@ -214,9 +259,13 @@ function DiscoveryCard({row,preview}:{row:CatalogueRow;preview?:()=>void}) {
   return <li className="catalogue-product-card">
     <div className="catalogue-card-header">
       <div className="catalogue-card-brand">
-        {brandTile&&<span className={`catalogue-brand-logo catalogue-brand-logo--${brandTile}`}>
+        {brandImage&&<img className="catalogue-company-image" src={brandImage} alt={`${brand} logo`} width={48} height={40}/> }
+        {!brandImage&&brandTile&&<span className={`catalogue-brand-logo catalogue-brand-logo--${brandTile}`}>
           <img src="/catalogue-brand-logos.png" alt="" draggable={false}/>
         </span>}
+        {!brandImage && !brandTile && providerArtwork && <img className="catalogue-company-image" src={providerArtwork}
+          alt={`${brand} artwork`} width={48} height={40} loading="lazy" referrerPolicy="no-referrer"
+          onError={()=>setFailedArtwork(providerArtwork)}/>}
         {brand&&<strong>{brand}</strong>}
       </div>
       <span className={hasFlag?`catalogue-flag catalogue-flag--${countryCode}`:'catalogue-flag'} aria-hidden="true">
@@ -232,32 +281,67 @@ function DiscoveryCard({row,preview}:{row:CatalogueRow;preview?:()=>void}) {
       <div>
         <dt className="catalogue-card-detail">Provider denomination</dt>
         <dd className="catalogue-amount catalogue-card-denomination">
-          {row.minAmount===row.maxAmount?row.maxAmount:`${row.minAmount}–${row.maxAmount}`} {row.currency}
+          {providerAmountUnavailable ? 'Amount required' : row.minAmount===row.maxAmount?row.maxAmount:`${row.minAmount}–${row.maxAmount}`} {row.currency}
         </dd>
       </div>
-      <div>
+      {row.providerId!=='FINXPLOR'&&<div>
         <dt className="catalogue-card-detail">Selling price</dt>
         {sellingPrice ? <dd className="catalogue-card-selling-price">
           <span className="catalogue-amount catalogue-card-denomination">AED {sellingPrice}</span>
           <span className="catalogue-card-detail">Demo estimate</span>
-        </dd> : <dd className="catalogue-card-price-pending">{discoveryOnly?'Outside pricing scope':'Pending verification'}</dd>}
-      </div>
+        </dd> : <dd className="catalogue-card-price-pending">Cost data required</dd>}
+      </div>}
     </dl>
     <div className="catalogue-card-review">
-      <span className={`badge badge--${discoveryOnly?'neutral':'warning'}`}>{discoveryOnly?'Discovery only':'Mapping review required'}</span>
+      <span className={`badge badge--${discoveryOnly?'neutral':'warning'}`}>{discoveryOnly?'Discovery only':
+        mappingStatus==='APPROVED'?'Mapping approved':'Mapping review required'}</span>
       {discoveryOnly&&mappingDetails&&<p className="catalogue-card-detail">Outside priced coverage for {mappingDetails}</p>}
-      {!discoveryOnly&&<p className="catalogue-card-detail">Canonical match required before pricing</p>}
-      {!discoveryOnly&&row.pricingReview?.state==='AWAITING_VERIFIED_TERMS'&&<p className="catalogue-card-detail">
-        Verify the provider debit, currency and fees to price this product.</p>}
+      {!discoveryOnly&&row.pricingReview?.state==='AWAITING_VERIFIED_TERMS'&&<details>
+        <summary>Pricing review</summary>
+        <ul>
+          <li>{row.coverageScope==='ALL_COUNTRIES'?'Verified account catalogue':
+            row.coverageScope==='ARE_GIFT_CARD'?'Verified UAE gift-card listing':'Coverage awaits verification'}</li>
+          <li>{mappingStatus==='APPROVED'?'Canonical mapping approved':mappingStatus==='PROPOSED'?'Mapping awaiting approval':
+            mappingStatus==='REJECTED'?'Canonical mapping rejected':'Canonical match required'}</li>
+          <li>Verified provider debit and fees required</li>
+          <li>Approved pricing policy required before drafting</li>
+        </ul>
+      </details>}
     </div>
+    {row.providerId==='FINXPLOR'&&<Layer1Prices row={row}/>}
     {row.observedAt&&Number.isFinite(Date.parse(row.observedAt))&&<p className="catalogue-card-observed">Observed <time dateTime={row.observedAt}>
       {observedDateTime.format(new Date(row.observedAt))}</time> Dubai</p>}
-    {preview&&<Button variant="secondary" onClick={preview}>Preview AED price</Button>}
+    {row.providerId!=='FINXPLOR'&&preview&&sellingPrice&&<Button variant="secondary" onClick={preview}>Preview AED price</Button>}
   </li>;
 }
 
-export function CataloguePage({csrfToken}:{csrfToken:string}) {
+export function CataloguePage({csrfToken,fxRevision=0}:{csrfToken:string;fxRevision?:number}) {
   const [group,setGroup] = useState('GCC');
+  const [syncing,setSyncing]=useState(false);
+  const [syncMessage,setSyncMessage]=useState('');
+  async function syncCatalogue() {
+    if(syncing)return;
+    setSyncing(true);setSyncMessage('Syncing every country from Finxplor?');
+    try {
+      const response=await fetch('/staff-api/catalogue/sync',{method:'POST',credentials:'same-origin',
+        headers:{'x-csrf-token':csrfToken??''}});
+      const result=await response.json();
+      if(!response.ok || result.persisted!==true)throw new Error();
+      const catalogue = `Saved ${result.products} products to PostgreSQL (${result.inserted} new, ${result.unchanged} unchanged).`;
+      const layer1 = result.layer1===null ? ' Layer 1 refresh is pending.' : result.layer1
+        ? ` Layer 1 saved ${result.layer1.amounts} amounts. ${result.layer1.pendingFx} await an exchange rate.` : '';
+      const progress = result.verificationMismatch===true
+        ? ' Finxplor returned different products on the verification pass. The catalogue includes both results.'
+        : Number.isSafeInteger(result.nextPage)
+        ? result.verificationPending===true
+          ? ` Finxplor reached the final page. Another sync resumes verification at page ${result.nextPage}.`
+          : ` Finxplor coverage is incomplete. Another sync resumes at page ${result.nextPage}.`
+        : '';
+      setSyncMessage(catalogue+layer1+progress);
+      discoveryProviders.restart();discoveries.restart();
+    } catch {setSyncMessage('Sync failed. Existing saved products are retained. Check the server sync receipt.');}
+    finally {setSyncing(false);}
+  }
   const [country,setCountry] = useState('');
   const [service,setService] = useState('');
   const [provider,setProvider] = useState('');
@@ -277,7 +361,7 @@ export function CataloguePage({csrfToken}:{csrfToken:string}) {
   const discoveryProvider = chosenDiscoveryProvider ?? discoveryProviders.rows.find(row=>row.hasDiscoveries)?.id ?? '';
   const discoveries = useCatalogue('discoveries',Boolean(discoveryProvider),{provider:discoveryProvider,sort:'name',
     ...(discoveryFilter&&{search:discoveryFilter}),...(sourceRegion&&{sourceRegion}),...(sourceCountry&&{sourceCountry}),
-    ...(productType&&{productType})},pageSize);
+    ...(productType&&{productType})},pageSize,fxRevision);
   const providerRegions=[...new Set(discoveries.facets.markets.map(market=>market.region))].sort();
   const providerMarkets=discoveries.facets.markets.filter(market=>!sourceRegion||market.region===sourceRegion);
   const countries = useCatalogue('countries',discoveryProviders.kind==='ready'&&discoveryProviders.hasConfiguredServices!==false,{sort:'name'},50);
@@ -293,6 +377,10 @@ export function CataloguePage({csrfToken}:{csrfToken:string}) {
   const publications = useCatalogue('publications',Boolean(product),{product});
   return <div className="catalogue-layout">
     <Panel title="Provider discoveries" subtitle="Imported products awaiting review. Denominations are reported by the provider.">
+      <div className="catalogue-discovery-tools">
+        <Button type="button" disabled={syncing||!csrfToken} onClick={()=>void syncCatalogue()}>{syncing?'Syncing?':'Sync all Finxplor products'}</Button>
+        <p role="status" aria-live="polite">{syncMessage}</p>
+      </div>
       <div className="catalogue-discovery-filters catalogue-filters">
         <SelectCatalogue label="Provider" icon={Building2} value={discoveryProvider} disabled={discoveryProviders.kind!=='ready'||!discoveryProviders.rows.length}
           rows={discoveryProviders.rows.map(row=>({...row,name:row.hasDiscoveries ? row.name??row.id : `${row.name??row.id} (no imports)`}))}
@@ -330,6 +418,9 @@ export function CataloguePage({csrfToken}:{csrfToken:string}) {
           {...(discoveryProviders.pricingPreviewAvailable&&{preview:()=>setPreview(row)})}/>)}</ul>:
         <EmptyState title="No products found" description={discoveryFilter||sourceCountry||sourceRegion||productType?
           'No provider products match your filters.':'No products have been imported for this provider.'}/>)}
+      {discoveries.cataloguePartial && <Notice tone="warning">
+        This catalogue includes the Finxplor products received so far. Full account coverage awaits a confirmed final page.
+      </Notice>}
       <PageControls label="Provider discoveries" state={discoveries}/>
       </>}
     </Panel>

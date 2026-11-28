@@ -247,3 +247,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.catalogue-card-acquisition { border-top: 1px solid var(--border, #e8e2ee); padding-top: 0.65rem; }
+.catalogue-card-acquisition p, .catalogue-card-acquisition ul { margin: 0.35rem 0 0; }
+.catalogue-card-acquisition ul { padding-left: 1rem; }
+
+.catalogue-layer1-prices { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.catalogue-layer1-prices th, .catalogue-layer1-prices td { padding: 0.28rem 0.25rem; text-align: left; overflow-wrap: anywhere; }
+.catalogue-layer1-prices th { font-weight: 600; }
+.catalogue-layer1-prices td { border-top: 1px solid var(--border, #e8e2ee); }

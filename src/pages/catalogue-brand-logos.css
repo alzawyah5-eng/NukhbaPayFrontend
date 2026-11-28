@@ -32,3 +32,5 @@
 .catalogue-brand-logo--tnt img { left: -288px; top: -80px; }
 .catalogue-brand-logo--vodacom img { left: -336px; top: -80px; }
 .catalogue-brand-logo--xl img { left: 0px; top: -120px; }
+
+.catalogue-company-image { width:48px; height:40px; object-fit:contain; border-radius:6px; background:white; }
