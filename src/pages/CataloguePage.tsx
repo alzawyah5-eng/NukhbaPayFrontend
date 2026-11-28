@@ -245,7 +245,8 @@ function DiscoveryCard({row,preview}:{row:CatalogueRow;preview?:()=>void}) {
   const hasFlag=countryCode!==undefined&&/^[a-z]{2}$/.test(countryCode);
   const discoveryOnly=row.reviewReason==='OUTSIDE_PRICED_CATALOGUE_SCOPE';
   const mappingStatus=row.pricingReview?.mappingStatus;
-  const providerAmountUnavailable = row.providerId==='FINXPLOR' &&
+  const ipay = row.providerId==='IPAY';
+  const providerAmountUnavailable = (row.providerId==='FINXPLOR' || ipay) &&
     [row.minAmount,row.maxAmount,...(Array.isArray(row.denominations) ? row.denominations : [])].every(value=>
       typeof value==='string' && /^0(?:\.0+)?$/.test(value));
   const sellingPrice=typeof row.sellingPricePreview==='string'&&/^(?:0|[1-9][0-9]{0,6})\.[0-9]{2}$/.test(row.sellingPricePreview)
@@ -281,10 +282,11 @@ function DiscoveryCard({row,preview}:{row:CatalogueRow;preview?:()=>void}) {
       <div>
         <dt className="catalogue-card-detail">Provider denomination</dt>
         <dd className="catalogue-amount catalogue-card-denomination">
-          {providerAmountUnavailable ? 'Amount required' : row.minAmount===row.maxAmount?row.maxAmount:`${row.minAmount}–${row.maxAmount}`} {row.currency}
+          {providerAmountUnavailable ? 'Amount required' : ipay && row.denominations?.length ? row.denominations.join(', ') :
+            row.minAmount===row.maxAmount?row.maxAmount:`${row.minAmount}–${row.maxAmount}`} {row.currency}
         </dd>
       </div>
-      {row.providerId!=='FINXPLOR'&&<div>
+      {row.providerId!=='FINXPLOR'&&!ipay&&<div>
         <dt className="catalogue-card-detail">Selling price</dt>
         {sellingPrice ? <dd className="catalogue-card-selling-price">
           <span className="catalogue-amount catalogue-card-denomination">AED {sellingPrice}</span>
@@ -311,19 +313,21 @@ function DiscoveryCard({row,preview}:{row:CatalogueRow;preview?:()=>void}) {
     {row.providerId==='FINXPLOR'&&<Layer1Prices row={row}/>}
     {row.observedAt&&Number.isFinite(Date.parse(row.observedAt))&&<p className="catalogue-card-observed">Observed <time dateTime={row.observedAt}>
       {observedDateTime.format(new Date(row.observedAt))}</time> Dubai</p>}
-    {row.providerId!=='FINXPLOR'&&preview&&sellingPrice&&<Button variant="secondary" onClick={preview}>Preview AED price</Button>}
+    {row.providerId!=='FINXPLOR'&&!ipay&&preview&&sellingPrice&&<Button variant="secondary" onClick={preview}>Preview AED price</Button>}
   </li>;
 }
 
-export function CataloguePage({csrfToken,fxRevision=0}:{csrfToken:string;fxRevision?:number}) {
+export function CataloguePage({csrfToken,fxRevision=0,canSyncIpayCatalogue=false}:
+  {csrfToken:string;fxRevision?:number;canSyncIpayCatalogue?:boolean}) {
   const [group,setGroup] = useState('GCC');
-  const [syncing,setSyncing]=useState(false);
+  const [syncing,setSyncing]=useState<'finxplor'|'ipay'|null>(null);
   const [syncMessage,setSyncMessage]=useState('');
-  async function syncCatalogue() {
+  async function syncCatalogue(provider:'finxplor'|'ipay') {
     if(syncing)return;
-    setSyncing(true);setSyncMessage('Syncing every country from Finxplor?');
+    setSyncing(provider);
+    setSyncMessage(provider==='ipay'?'Syncing iPay products…':'Syncing every country from Finxplor…');
     try {
-      const response=await fetch('/staff-api/catalogue/sync',{method:'POST',credentials:'same-origin',
+      const response=await fetch(provider==='ipay'?'/staff-api/catalogue/sync-ipay':'/staff-api/catalogue/sync',{method:'POST',credentials:'same-origin',
         headers:{'x-csrf-token':csrfToken??''}});
       const result=await response.json();
       if(!response.ok || result.persisted!==true)throw new Error();
@@ -340,7 +344,7 @@ export function CataloguePage({csrfToken,fxRevision=0}:{csrfToken:string;fxRevis
       setSyncMessage(catalogue+layer1+progress);
       discoveryProviders.restart();discoveries.restart();
     } catch {setSyncMessage('Sync failed. Existing saved products are retained. Check the server sync receipt.');}
-    finally {setSyncing(false);}
+    finally {setSyncing(null);}
   }
   const [country,setCountry] = useState('');
   const [service,setService] = useState('');
@@ -378,7 +382,12 @@ export function CataloguePage({csrfToken,fxRevision=0}:{csrfToken:string;fxRevis
   return <div className="catalogue-layout">
     <Panel title="Provider discoveries" subtitle="Imported products awaiting review. Denominations are reported by the provider.">
       <div className="catalogue-discovery-tools">
-        <Button type="button" disabled={syncing||!csrfToken} onClick={()=>void syncCatalogue()}>{syncing?'Syncing?':'Sync all Finxplor products'}</Button>
+        {discoveryProvider==='IPAY' ? canSyncIpayCatalogue &&
+          <Button type="button" disabled={Boolean(syncing)||!csrfToken} onClick={()=>void syncCatalogue('ipay')}>
+            {syncing==='ipay'?'Syncing…':'Sync iPay products'}
+          </Button> : <Button type="button" disabled={Boolean(syncing)||!csrfToken} onClick={()=>void syncCatalogue('finxplor')}>
+            {syncing==='finxplor'?'Syncing…':'Sync all Finxplor products'}
+          </Button>}
         <p role="status" aria-live="polite">{syncMessage}</p>
       </div>
       <div className="catalogue-discovery-filters catalogue-filters">

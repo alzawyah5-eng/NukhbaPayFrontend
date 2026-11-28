@@ -12,6 +12,7 @@ export interface StaffProfile {
   readonly navigation: readonly WorkspacePath[];
   readonly departmentAccess?:DepartmentAccess;
   readonly canRefreshFxRates?:true;
+  readonly canSyncIpayCatalogue?:true;
 }
 
 export async function readLoginConfig(signal?:AbortSignal):Promise<{path:'/auth/login';departmentLogin:boolean}|undefined> {
@@ -38,8 +39,9 @@ export async function readSession(signal?: AbortSignal): Promise<SessionState> {
     if (!response.ok) return { kind: 'unavailable' };
     const data: unknown = await response.json();
     if (typeof data === 'object' && data !== null && !Array.isArray(data) &&
-      ['csrfToken,expiresAtMs,navigation,staffId,tenantId','csrfToken,departmentAccess,expiresAtMs,navigation,staffId,tenantId'].includes(Object.keys(data).filter(key=>key!=='canRefreshFxRates').sort().join(','))) {
-      const {csrfToken,staffId,tenantId,expiresAtMs,navigation,departmentAccess,canRefreshFxRates}=data as Record<string,unknown>;
+      ['csrfToken,expiresAtMs,navigation,staffId,tenantId','csrfToken,departmentAccess,expiresAtMs,navigation,staffId,tenantId'].includes(
+        Object.keys(data).filter(key=>key!=='canRefreshFxRates' && key!=='canSyncIpayCatalogue').sort().join(','))) {
+      const {csrfToken,staffId,tenantId,expiresAtMs,navigation,departmentAccess,canRefreshFxRates,canSyncIpayCatalogue}=data as Record<string,unknown>;
       const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if(typeof csrfToken==='string' && /^[A-Za-z0-9_-]{43}$/.test(csrfToken) &&
         typeof staffId==='string' && uuid.test(staffId) &&
@@ -50,9 +52,11 @@ export async function readSession(signal?: AbortSignal): Promise<SessionState> {
         navigation.length<=workspacePaths.length && new Set(navigation).size===navigation.length &&
         navigation.slice(1).every(item=>tenantId!==null && workspacePaths.includes(item)) &&
         (canRefreshFxRates===undefined || canRefreshFxRates===true && navigation.includes('/catalogue')) &&
+        (canSyncIpayCatalogue===undefined || canSyncIpayCatalogue===true && navigation.includes('/catalogue')) &&
         (departmentAccess===undefined || (!!tenantId && validDepartmentAccess(departmentAccess)))) {
         return {kind:'authenticated',csrfToken,profile:{staffId,tenantId,expiresAtMs,navigation,
-          ...(departmentAccess&&{departmentAccess}),...(canRefreshFxRates===true&&{canRefreshFxRates})}};
+          ...(departmentAccess&&{departmentAccess}),...(canRefreshFxRates===true&&{canRefreshFxRates}),
+          ...(canSyncIpayCatalogue===true&&{canSyncIpayCatalogue})}};
       }
     }
   } catch { /* Render a safe retry state, never a fabricated session. */ }

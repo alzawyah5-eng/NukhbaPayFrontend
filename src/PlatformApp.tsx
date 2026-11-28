@@ -240,7 +240,8 @@ export function PlatformApp({management=false}:{management?:boolean}={}) {
         {active==='/audit' && <><StaffAuditPage/>{profile.navigation.includes('/roles') && <WorkspaceActivityPage/>}</>}
         {active==='/reports' && <WorkspaceReportsPage/>}
         {active==='/settings' && <WorkspaceSettingsPage csrfToken={session.csrfToken}/>}
-        {active==='/catalogue' && <CataloguePage csrfToken={session.csrfToken} fxRevision={fxRevision}/>}
+        {active==='/catalogue' && <CataloguePage csrfToken={session.csrfToken} fxRevision={fxRevision}
+          canSyncIpayCatalogue={profile.canSyncIpayCatalogue===true}/>}
         {active==='/catalogue/publication' && <PublicationCommandsPage csrfToken={session.csrfToken}/>}
         {active==='/staff/commands' && <StaffCommandPage csrfToken={session.csrfToken}/>}
         {!active && <Panel title="Workspace access">

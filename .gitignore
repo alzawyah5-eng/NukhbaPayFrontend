@@ -49,3 +49,5 @@ tmp/
 
 # TypeScript build info
 *.tsbuildinfo
+dist-kiosk/
+dist-staff/

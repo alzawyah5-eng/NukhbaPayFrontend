@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:staff": "vite build --mode staff",
+    "build:kiosk": "vite build --mode kiosk",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

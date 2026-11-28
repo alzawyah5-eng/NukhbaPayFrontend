@@ -1,0 +1,63 @@
+name: Publish staging frontend source
+
+on:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-frontend-source
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Package the pushed revision
+        run: |
+          git archive --format=zip --output="$RUNNER_TEMP/source.zip" "$GITHUB_SHA" -- \
+            src public package.json package-lock.json vite.config.ts tsconfig.json index.html kiosk.html
+          python - "$RUNNER_TEMP/source.zip" <<'PY'
+          from pathlib import PurePosixPath
+          from stat import S_ISLNK
+          from sys import argv
+          from zipfile import ZipFile
+
+          with ZipFile(argv[1]) as archive:
+              for member in archive.infolist():
+                  path = PurePosixPath(member.filename)
+                  if (S_ISLNK(member.external_attr >> 16)
+                      or any(p in {'.local', '.aws', '.ssh', 'secrets', 'certs'} or p == '.env' or p.startswith('.env.') for p in path.parts)
+                      or path.suffix.lower() in {'.key', '.pem', '.pfx', '.p12', '.clixml', '.dump', '.backup', '.tfstate', '.log'}):
+                      raise SystemExit(f'Excluded path in staging source: {path}')
+          PY
+
+      - name: Sign in to the staging upload role
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          aws-region: eu-north-1
+          role-to-assume: arn:aws:iam::796837507809:role/nukhbapay-staging-frontend-push
+          allowed-account-ids: '796837507809'
+
+      - name: Upload the current staging revision
+        run: |
+          current=$(git ls-remote --exit-code origin refs/heads/staging | cut -f 1)
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo 'A newer staging push has superseded this run.'
+            exit 0
+          fi
+          aws s3api put-object \
+            --bucket nukhbapay-staging-release-796837507809-eu-north-1 \
+            --key sources/frontend.zip \
+            --body "$RUNNER_TEMP/source.zip" \
+            --server-side-encryption AES256 \
+            --metadata "commit=$GITHUB_SHA" \
+            --query VersionId --output text
