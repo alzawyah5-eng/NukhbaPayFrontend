@@ -46,6 +46,8 @@ jobs:
           aws-region: eu-north-1
           role-to-assume: arn:aws:iam::796837507809:role/nukhbapay-staging-frontend-push
           allowed-account-ids: '796837507809'
+          role-duration-seconds: 900
+          role-session-name: staging-${{ github.run_id }}
 
       - name: Upload the current staging revision
         run: |
